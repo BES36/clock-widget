@@ -30,12 +30,6 @@
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6), 0px 0px 4px rgba(0, 0, 0, 0.4);
             white-space: nowrap;
         }
-
-        /* Прячем встроенные иконки информера, оставляем только цифры */
-        #weather-box {
-            display: inline-block;
-            line-height: 1;
-        }
     </style>
 </head>
 <body>
@@ -44,42 +38,38 @@
         <span id="display-text">00:00</span>
     </div>
 
-    <!-- Подключаем независимый информер погоды Иркутска, который обходит любые блокировки CORS -->
-    <div id="weather-data-bridge" style="display:none;">
-        <a href="https://yandex.ru" target="_blank">
-            <img id="weather-img" src="https://yandex.ru" border="0" alt=""/>
-        </a>
-    </div>
-
     <script>
         const displayText = document.getElementById('display-text');
-        let currentTemperature = "--.-";
+        let currentTemperature = "LOADING...";
         let displayMode = "time";
 
-        // Глобальная функция-колбэк для обхода CORS
-        window.processWeather = function(data) {
-            if (data && data.current && typeof data.current.temperature_2m === 'number') {
-                const num = data.current.temperature_2m;
-                let formatted = Math.abs(num).toFixed(1);
-                if (num > 0) {
-                    currentTemperature = `+${formatted}`;
-                } else if (num < 0) {
-                    currentTemperature = `-${formatted}`;
-                } else {
-                    currentTemperature = `0.0`;
-                }
-            }
-        };
-
-        // Загрузка погоды через динамический тег <script> (100% обход CORS)
         function updateTemperatureFromBridge() {
-            const oldScript = document.getElementById('weather-script');
-            if (oldScript) oldScript.remove();
-
-            const script = document.createElement('script');
-            script.id = 'weather-script';
-            script.src = `https://api.open-meteo.com/v1/forecast?latitude=52.2978&longitude=104.2964&current=temperature_2m&timeformat=unixtime&callback=processWeather&_=${Date.now()}`;
-            document.body.appendChild(script);
+            // Прямой запрос температуры Иркутска (52.2978, 104.2964)
+            fetch('https://api.open-meteo.com/v1/forecast?latitude=52.2978&longitude=104.2964&current_weather=true')
+                .then(res => {
+                    if (!res.ok) throw new Error('HTTP status ' + res.status);
+                    return res.json();
+                })
+                .then(data => {
+                    if (data && data.current_weather && typeof data.current_weather.temperature === 'number') {
+                        let num = data.current_weather.temperature;
+                        let formatted = Math.abs(num).toFixed(1);
+                        if (num > 0) {
+                            currentTemperature = `+${formatted}`;
+                        } else if (num < 0) {
+                            currentTemperature = `-${formatted}`;
+                        } else {
+                            currentTemperature = `0.0`;
+                        }
+                    } else {
+                        currentTemperature = "ERR_DATA";
+                    }
+                })
+                .catch(err => {
+                    // Если запрос упал, выводим ошибку на экран, чтобы понять причину
+                    currentTemperature = "ERR_NET";
+                    console.error("Weather Fetch Error:", err);
+                });
         }
 
         function getIrkutskTime() {
@@ -101,15 +91,15 @@
             }
         }
 
-        // Резкая смена без анимаций каждые 5 секунд
+        // Переключение время / погода каждые 5 секунд
         setInterval(() => {
             displayMode = displayMode === "time" ? "weather" : "time";
             updateWidget();
         }, 5000);
 
-        // Обновляем погоду раз в 10 минут
+        // Обновляем погоду раз в 5 минут
         updateTemperatureFromBridge();
-        setInterval(updateTemperatureFromBridge, 10 * 60 * 1000);
+        setInterval(updateTemperatureFromBridge, 5 * 60 * 1000);
 
         // Обновляем время каждую секунду
         setInterval(updateWidget, 1000);
