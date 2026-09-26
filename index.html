@@ -40,19 +40,20 @@
 
     <script>
         const displayText = document.getElementById('display-text');
-        let currentTemperature = "LOADING...";
+        let currentTemperature = "...";
         let displayMode = "time";
 
+        const API_KEY = '72870cfd1ca3406cb78155025262609';
+
         function updateTemperatureFromBridge() {
-            // Прямой запрос температуры Иркутска (52.2978, 104.2964)
-            fetch('https://api.open-meteo.com/v1/forecast?latitude=52.2978&longitude=104.2964&current_weather=true')
+            fetch(`https://api.weatherapi.com/v1/current.json?key=${API_KEY}&q=Irkutsk&aqi=no`)
                 .then(res => {
-                    if (!res.ok) throw new Error('HTTP status ' + res.status);
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
                     return res.json();
                 })
                 .then(data => {
-                    if (data && data.current_weather && typeof data.current_weather.temperature === 'number') {
-                        let num = data.current_weather.temperature;
+                    if (data && data.current && typeof data.current.temp_c === 'number') {
+                        let num = data.current.temp_c;
                         let formatted = Math.abs(num).toFixed(1);
                         if (num > 0) {
                             currentTemperature = `+${formatted}`;
@@ -61,14 +62,11 @@
                         } else {
                             currentTemperature = `0.0`;
                         }
-                    } else {
-                        currentTemperature = "ERR_DATA";
                     }
                 })
                 .catch(err => {
-                    // Если запрос упал, выводим ошибку на экран, чтобы понять причину
+                    console.error(err);
                     currentTemperature = "ERR_NET";
-                    console.error("Weather Fetch Error:", err);
                 });
         }
 
@@ -97,11 +95,11 @@
             updateWidget();
         }, 5000);
 
-        // Обновляем погоду раз в 5 минут
+        // Обновление погоды раз в 10 минут
         updateTemperatureFromBridge();
-        setInterval(updateTemperatureFromBridge, 5 * 60 * 1000);
+        setInterval(updateTemperatureFromBridge, 10 * 60 * 1000);
 
-        // Обновляем время каждую секунду
+        // Обновление времени каждую секунду
         setInterval(updateWidget, 1000);
         updateWidget();
     </script>
